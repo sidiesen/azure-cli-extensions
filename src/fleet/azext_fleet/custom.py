@@ -24,6 +24,7 @@ def create_fleet(cmd,
                  location=None,
                  tags=None,
                  enable_hub=False,
+                 vm_size=None,
                  dns_name_prefix=None,
                  enable_private_cluster=False,
                  enable_vnet_integration=False,
@@ -32,7 +33,6 @@ def create_fleet(cmd,
                  enable_managed_identity=False,
                  assign_identity=None,
                  no_wait=False):
-
     fleet_model = cmd.get_models(
         "Fleet",
         resource_type=CUSTOM_MGMT_FLEET,
@@ -55,7 +55,8 @@ def create_fleet(cmd,
         agent_profile_model = cmd.get_models(
             "AgentProfile",
             resource_type=CUSTOM_MGMT_FLEET,
-            operation_group="fleets"
+            operation_group="fleets",
+            vm_size=vm_size
         )
         if dns_name_prefix is None:
             subscription_id = get_subscription_id(cmd.cli_ctx)
@@ -206,8 +207,8 @@ def get_credentials(cmd,  # pylint: disable=unused-argument
             encoding='UTF-8')
         print_or_merge_credentials(
             path, kubeconfig, overwrite_existing, context_name)
-    except (IndexError, ValueError):
-        raise CLIError("Fail to find kubeconfig file.")
+    except (IndexError, ValueError) as exc:
+        raise CLIError("Fail to find kubeconfig file.") from exc
 
 
 def create_fleet_member(cmd,
@@ -331,14 +332,9 @@ def create_update_run(cmd,
         strategy=update_run_strategy,
         managed_cluster_update=managed_cluster_update)
 
-    result = None
-    try:
-        result = sdk_no_wait(no_wait, client.begin_create_or_update, resource_group_name, fleet_name, name, update_run)
-        print("After successfully creating the run, you need to use the following command to start the run:"
-              f"az fleet updaterun start --resource-group={resource_group_name} --fleet={fleet_name} --name={name}")
-    except Exception as e:
-        return e
-
+    result = sdk_no_wait(no_wait, client.begin_create_or_update, resource_group_name, fleet_name, name, update_run)
+    print("After successfully creating the run, you need to use the following command to start the run:"
+          f"az fleet updaterun start --resource-group={resource_group_name} --fleet={fleet_name} --name={name}")
     return result
 
 
@@ -388,7 +384,7 @@ def get_update_run_strategy(cmd, operation_group, stages):
     if stages is None:
         return None
 
-    with open(stages, 'r') as fp:
+    with open(stages, 'r', encoding='utf-8') as fp:
         data = json.load(fp)
         fp.close()
 
